@@ -1,7 +1,7 @@
 import { WebSocketServer, WebSocket } from 'ws';
 
 interface SignalingMessage {
-  type: 'identify' | 'offer' | 'answer' | 'candidate' | 'ping' | 'join';
+  type: 'identify' | 'offer' | 'answer' | 'candidate' | 'join' | 'peer-joined' | 'peer-left' | 'fx-change' | 'ping';
   target?: string;
   sender: string;
   roomId?: string;
@@ -72,15 +72,31 @@ wss.on('connection', (ws: ExtendedWebSocket) => {
       case 'offer':
       case 'answer':
       case 'candidate':
-        if (target && clients.has(target)) {
+      case 'fx-change':
+        // If roomId is provided, broadcast to everyone else in the room
+        if (roomId && rooms.has(roomId)) {
+          const room = rooms.get(roomId)!;
+          room.forEach(peerId => {
+            if (peerId !== sender) {
+              const peerWs = clients.get(peerId);
+              if (peerWs && peerWs.readyState === WebSocket.OPEN) {
+                peerWs.send(JSON.stringify({
+                  type: 'fx-change',
+                  sender: sender,
+                  payload: payload
+                }));
+              }
+            }
+          });
+        } 
+        // Otherwise, if target is provided, forward to specific target
+        else if (target && clients.has(target)) {
           console.log(`Forwarding ${type} from ${sender} to ${target}`);
           clients.get(target)?.send(JSON.stringify({
             type,
             sender,
             payload
           }));
-        } else {
-          console.warn(`Target ${target} not found for ${type}`);
         }
         break;
 
