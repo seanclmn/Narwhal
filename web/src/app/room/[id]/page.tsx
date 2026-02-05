@@ -42,26 +42,12 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
     }
 
     const initWebRTC = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-            sampleRate: 48000,
-            channelCount: 1
-          }
-        });
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
-        }
-      } catch (err) {
-        console.error('Error accessing media devices:', err);
-      }
+      // ... (media capture logic)
 
-      const socket = new WebSocket('ws://localhost:8080');
+      const signalingUrl = process.env.NEXT_PUBLIC_SIGNALING_SERVER || 'ws://localhost:8080';
+      const socket = new WebSocket(signalingUrl);
       socketRef.current = socket;
+
 
       socket.onopen = () => {
         setStatus('connected');
