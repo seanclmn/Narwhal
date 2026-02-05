@@ -53,6 +53,15 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
         setStatus('connected');
         socket.send(JSON.stringify({ type: 'identify', sender: clientId }));
         socket.send(JSON.stringify({ type: 'join', sender: clientId, roomId }));
+
+        // Start heartbeat to keep Cloud Run connection alive
+        const heartbeat = setInterval(() => {
+          if (socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({ type: 'ping', sender: clientId }));
+          }
+        }, 30000); // Every 30 seconds
+
+        (socket as any)._heartbeat = heartbeat;
       };
 
       socket.onmessage = async (event) => {
@@ -81,7 +90,10 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
         }
       };
 
-      socket.onclose = () => setStatus('disconnected');
+      socket.onclose = () => {
+        setStatus('disconnected');
+        if ((socket as any)._heartbeat) clearInterval((socket as any)._heartbeat);
+      };
     };
 
     initWebRTC().catch(console.error);
