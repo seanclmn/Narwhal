@@ -42,9 +42,26 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
     }
 
     const initWebRTC = async () => {
-      // ... (media capture logic)
+      // 1. Get Local Stream with high quality audio constraints
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: true, 
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            sampleRate: 48000,
+            channelCount: 1
+          } 
+        });
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = stream;
+        }
+      } catch (err) {
+        console.error('Error accessing media devices:', err);
+      }
 
-      const signalingUrl = process.env.NEXT_PUBLIC_SIGNALING_SERVER || 'ws://localhost:8080';
+      const signalingUrl = "wss://narwhalserver-858361553441.asia-northeast1.run.app";
       const socket = new WebSocket(signalingUrl);
       socketRef.current = socket;
 
