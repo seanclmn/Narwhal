@@ -6,7 +6,11 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
   const { id } = await params;
 
   // No fallback to localhost.
-  const signalingServerUrl = process.env.NEXT_PUBLIC_SIGNALING_SERVER;
+  const signalingServerUrl = process.env.SIGNALING_SERVER_URL ||
+    process.env.NEXT_PUBLIC_SIGNALING_SERVER;
+
+  console.log('DEBUG - SIGNALING_SERVER_URL:', process.env.SIGNALING_SERVER_URL);
+  console.log('DEBUG - NEXT_PUBLIC_SIGNALING_SERVER:', process.env.NEXT_PUBLIC_SIGNALING_SERVER);
 
   if (!signalingServerUrl) {
     return (
@@ -16,6 +20,11 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
           <p className="text-zinc-400 text-sm">
             Signaling server URL is not configured. Please set <code className="bg-zinc-800 px-1 rounded text-zinc-200">SIGNALING_SERVER_URL</code> in your environment.
           </p>
+          <div className="mt-4 text-xs text-zinc-600 text-left bg-black p-2 rounded">
+            <p>Debug Info:</p>
+            <p>SIGNALING_SERVER_URL: {process.env.SIGNALING_SERVER_URL || 'undefined'}</p>
+            <p>NEXT_PUBLIC_SIGNALING_SERVER: {process.env.NEXT_PUBLIC_SIGNALING_SERVER || 'undefined'}</p>
+          </div>
         </div>
       </div>
     );

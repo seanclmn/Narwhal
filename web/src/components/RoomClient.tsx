@@ -35,7 +35,21 @@ export default function RoomClient({ roomId, signalingServerUrl }: RoomClientPro
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' },
+      { urls: 'stun:stun.cloudflare.com:3478' },
+      { urls: 'stun:freeturn.net:3478' },
+      {
+        urls: 'turn:freeturn.net:3478',
+        username: 'free',
+        credential: 'free'
+      },
+      {
+        urls: 'turns:freeturn.net:5349',
+        username: 'free',
+        credential: 'free'
+      }
     ],
+    iceCandidatePoolSize: 10,
   };
 
   useEffect(() => {
@@ -83,23 +97,37 @@ export default function RoomClient({ roomId, signalingServerUrl }: RoomClientPro
       };
 
       socket.onmessage = async (event) => {
+        console.log('RAW MESSAGE RECEIVED:', event.data);
         const message: SignalingMessage = JSON.parse(event.data);
-        const { type, sender, payload } = message;
+        const { type, sender, target, payload } = message;
+
+        console.log(`PROCESSED MESSAGE: type=${type}, sender=${sender}, target=${target || 'none'}`);
+
+        // Ignore messages not meant for us (if target is specified)
+        if (target && target !== clientId) {
+          console.warn(`Ignoring message for target ${target} (I am ${clientId})`);
+          return;
+        }
 
         switch (type) {
           case 'peer-joined':
+            console.log('Peer joined, starting call to:', sender);
             await startCall(sender);
             break;
           case 'offer':
+            console.log('Received offer from:', sender);
             await handleOffer(sender, payload);
             break;
           case 'answer':
+            console.log('Received answer from:', sender);
             await handleAnswer(payload);
             break;
           case 'candidate':
+            console.log('Received ICE candidate from:', sender);
             await handleCandidate(payload);
             break;
           case 'peer-left':
+            console.log('Peer left:', sender);
             handlePeerLeft();
             break;
           case 'fx-change':
@@ -232,6 +260,7 @@ export default function RoomClient({ roomId, signalingServerUrl }: RoomClientPro
   };
 
   const startCall = async (targetId: string) => {
+    console.log('STARTING CALL TO:', targetId);
     const pc = createPeerConnection(targetId);
     const offer = await pc.createOffer();
     
