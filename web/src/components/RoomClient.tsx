@@ -99,15 +99,9 @@ export default function RoomClient({ roomId, signalingServerUrl }: RoomClientPro
       socket.onmessage = async (event) => {
         console.log('RAW MESSAGE RECEIVED:', event.data);
         const message: SignalingMessage = JSON.parse(event.data);
-        const { type, sender, target, payload } = message;
+        const { type, sender, payload } = message;
 
-        console.log(`PROCESSED MESSAGE: type=${type}, sender=${sender}, target=${target || 'none'}`);
-
-        // Ignore messages not meant for us (if target is specified)
-        if (target && target !== clientId) {
-          console.warn(`Ignoring message for target ${target} (I am ${clientId})`);
-          return;
-        }
+        console.log(`PROCESSED MESSAGE: type=${type}, sender=${sender}`);
 
         switch (type) {
           case 'peer-joined':
@@ -177,7 +171,7 @@ export default function RoomClient({ roomId, signalingServerUrl }: RoomClientPro
         remoteVideoRef.current.srcObject = event.streams[0];
         socketRef.current?.send(JSON.stringify({
           type: 'fx-change',
-          target: targetId,
+          roomId: roomId,
           sender: clientId!,
           payload: filter
         }));
@@ -193,11 +187,10 @@ export default function RoomClient({ roomId, signalingServerUrl }: RoomClientPro
 
     pc.onicecandidate = (event) => {
       if (event.candidate && socketRef.current) {
-        console.log('SENDING ICE CANDIDATE TO:', targetId);
+        console.log('SENDING ICE CANDIDATE TO ROOM');
         socketRef.current.send(JSON.stringify({
           type: 'candidate',
-          target: targetId,
-          roomId: roomId, // Include roomId in outgoing candidates
+          roomId: roomId,
           sender: clientId!,
           payload: event.candidate,
         }));
@@ -221,8 +214,7 @@ export default function RoomClient({ roomId, signalingServerUrl }: RoomClientPro
 
     socketRef.current?.send(JSON.stringify({
       type: 'answer',
-      target: senderId,
-      roomId: roomId, // Include roomId in outgoing answer
+      roomId: roomId,
       sender: clientId!,
       payload: answer,
     }));
@@ -280,8 +272,7 @@ export default function RoomClient({ roomId, signalingServerUrl }: RoomClientPro
 
     socketRef.current?.send(JSON.stringify({
       type: 'offer',
-      target: targetId,
-      roomId: roomId, // Include roomId in outgoing offer
+      roomId: roomId,
       sender: clientId!,
       payload: offer,
     }));
