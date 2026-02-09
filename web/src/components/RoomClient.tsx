@@ -172,6 +172,7 @@ export default function RoomClient({ roomId, signalingServerUrl }: RoomClientPro
     localStream?.getTracks().forEach((track) => pc.addTrack(track, localStream));
 
     pc.ontrack = (event) => {
+      console.log('REMOTE TRACK RECEIVED:', event.streams[0]);
       if (remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = event.streams[0];
         socketRef.current?.send(JSON.stringify({
@@ -184,6 +185,7 @@ export default function RoomClient({ roomId, signalingServerUrl }: RoomClientPro
     };
 
     pc.onconnectionstatechange = () => {
+      console.log('CONNECTION STATE CHANGE:', pc.connectionState);
       if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed') {
         handlePeerLeft();
       }
@@ -191,9 +193,11 @@ export default function RoomClient({ roomId, signalingServerUrl }: RoomClientPro
 
     pc.onicecandidate = (event) => {
       if (event.candidate && socketRef.current) {
+        console.log('SENDING ICE CANDIDATE TO:', targetId);
         socketRef.current.send(JSON.stringify({
           type: 'candidate',
           target: targetId,
+          roomId: roomId, // Include roomId in outgoing candidates
           sender: clientId!,
           payload: event.candidate,
         }));
@@ -218,6 +222,7 @@ export default function RoomClient({ roomId, signalingServerUrl }: RoomClientPro
     socketRef.current?.send(JSON.stringify({
       type: 'answer',
       target: senderId,
+      roomId: roomId, // Include roomId in outgoing answer
       sender: clientId!,
       payload: answer,
     }));
@@ -230,9 +235,12 @@ export default function RoomClient({ roomId, signalingServerUrl }: RoomClientPro
   };
 
   const handleCandidate = async (candidate: RTCIceCandidateInit) => {
+    console.log('RECEIVED ICE CANDIDATE FROM REMOTE');
     try {
       if (peerConnectionRef.current) {
         await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+      } else {
+        console.warn('Received ICE candidate but peerConnection is not initialized yet');
       }
     } catch (e) {
       console.error('Error adding received ice candidate', e);
@@ -273,6 +281,7 @@ export default function RoomClient({ roomId, signalingServerUrl }: RoomClientPro
     socketRef.current?.send(JSON.stringify({
       type: 'offer',
       target: targetId,
+      roomId: roomId, // Include roomId in outgoing offer
       sender: clientId!,
       payload: offer,
     }));
