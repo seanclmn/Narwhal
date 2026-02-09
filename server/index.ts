@@ -1,4 +1,5 @@
 import { WebSocketServer, WebSocket } from 'ws';
+import { createServer } from 'http';
 
 interface SignalingMessage {
   type: 'identify' | 'offer' | 'answer' | 'candidate' | 'join' | 'peer-joined' | 'peer-left' | 'fx-change' | 'ping';
@@ -13,9 +14,21 @@ interface ExtendedWebSocket extends WebSocket {
   roomId?: string;
 }
 
-const wss = new WebSocketServer({ port: 8080 });
+const port = process.env.PORT ? parseInt(process.env.PORT) : 8080;
 
-console.log('WebRTC Signaling Server started on ws://localhost:8080');
+const server = createServer((req, res) => {
+  if (req.url === '/health') {
+    res.writeHead(200);
+    res.end('OK');
+    return;
+  }
+  res.writeHead(404);
+  res.end();
+});
+
+const wss = new WebSocketServer({ server });
+
+console.log(`WebRTC Signaling Server starting on port ${port}...`);
 
 const clients = new Map<string, ExtendedWebSocket>();
 const rooms = new Map<string, Set<string>>(); // roomId -> Set of clientIds
@@ -57,9 +70,11 @@ wss.on('connection', (ws: ExtendedWebSocket) => {
           room.forEach(peerId => {
             const peerWs = clients.get(peerId);
             if (peerWs && peerWs.readyState === WebSocket.OPEN) {
+              console.log(`Notifying existing peer ${peerId} that ${ws.id} joined`);
               peerWs.send(JSON.stringify({
                 type: 'peer-joined',
                 sender: ws.id,
+                roomId: roomId // Include roomId
               }));
             }
           });
@@ -72,6 +87,36 @@ wss.on('connection', (ws: ExtendedWebSocket) => {
       case 'offer':
       case 'answer':
       case 'candidate':
+        // If target is provided, forward to specific target
+        if (target && clients.has(target)) {
+          console.log(`Forwarding ${type} from ${sender} to ${target}`);
+          clients.get(target)?.send(JSON.stringify({
+            type,
+            sender,
+            target,
+            payload
+          }));
+        } 
+        // Fallback: If no target but roomId is provided, broadcast to others in room
+        // This helps the initial handshake if the target ID isn't known yet
+        else if (roomId && rooms.has(roomId)) {
+          console.log(`Broadcasting ${type} from ${sender} to room ${roomId}`);
+          const room = rooms.get(roomId)!;
+          room.forEach(peerId => {
+            if (peerId !== sender) {
+              const peerWs = clients.get(peerId);
+              if (peerWs && peerWs.readyState === WebSocket.OPEN) {
+                peerWs.send(JSON.stringify({
+                  type,
+                  sender,
+                  payload
+                }));
+              }
+            }
+          });
+        }
+        break;
+
       case 'fx-change':
         // If roomId is provided, broadcast to everyone else in the room
         if (roomId && rooms.has(roomId)) {
@@ -91,9 +136,9 @@ wss.on('connection', (ws: ExtendedWebSocket) => {
         } 
         // Otherwise, if target is provided, forward to specific target
         else if (target && clients.has(target)) {
-          console.log(`Forwarding ${type} from ${sender} to ${target}`);
+          console.log(`Forwarding fx-change from ${sender} to ${target}`);
           clients.get(target)?.send(JSON.stringify({
-            type,
+            type: 'fx-change',
             sender,
             payload
           }));
@@ -143,4 +188,8 @@ wss.on('connection', (ws: ExtendedWebSocket) => {
   ws.on('error', (error) => {
     console.error('WebSocket error:', error);
   });
+});
+
+server.listen(port, '0.0.0.0', () => {
+  console.log(`Server listening on port ${port}`);
 });
