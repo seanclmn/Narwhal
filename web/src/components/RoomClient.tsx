@@ -25,7 +25,7 @@ export default function RoomClient({ roomId, signalingServerUrl }: RoomClientPro
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isCameraOff, setIsCameraOff] = useState(false);
-  
+
   const socketRef = useRef<WebSocket | null>(null);
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
@@ -61,15 +61,15 @@ export default function RoomClient({ roomId, signalingServerUrl }: RoomClientPro
 
     const initWebRTC = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-          video: true, 
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
           audio: {
             echoCancellation: true,
             noiseSuppression: true,
             autoGainControl: true,
             sampleRate: 48000,
             channelCount: 1
-          } 
+          }
         });
         if (localVideoRef.current) {
           localVideoRef.current.srcObject = stream;
@@ -97,8 +97,12 @@ export default function RoomClient({ roomId, signalingServerUrl }: RoomClientPro
       };
 
       socket.onmessage = async (event) => {
-        console.log('RAW MESSAGE RECEIVED:', event.data);
-        const message: SignalingMessage = JSON.parse(event.data);
+        let data = event.data;
+        if (data instanceof Blob) {
+          data = await data.text();
+        }
+        console.log('RAW MESSAGE RECEIVED:', data);
+        const message: SignalingMessage = JSON.parse(data);
         const { type, sender, payload } = message;
 
         console.log(`PROCESSED MESSAGE: type=${type}, sender=${sender}`);
@@ -205,11 +209,11 @@ export default function RoomClient({ roomId, signalingServerUrl }: RoomClientPro
     const pc = createPeerConnection(senderId);
     await pc.setRemoteDescription(new RTCSessionDescription(offer));
     const answer = await pc.createAnswer();
-    
+
     if (answer.sdp) {
       answer.sdp = answer.sdp.replace('useinbandfec=1', 'useinbandfec=1;stereo=1;maxaveragebitrate=128000');
     }
-    
+
     await pc.setLocalDescription(answer);
 
     socketRef.current?.send(JSON.stringify({
@@ -263,11 +267,11 @@ export default function RoomClient({ roomId, signalingServerUrl }: RoomClientPro
     console.log('STARTING CALL TO:', targetId);
     const pc = createPeerConnection(targetId);
     const offer = await pc.createOffer();
-    
+
     if (offer.sdp) {
       offer.sdp = offer.sdp.replace('useinbandfec=1', 'useinbandfec=1;stereo=1;maxaveragebitrate=128000');
     }
-    
+
     await pc.setLocalDescription(offer);
 
     socketRef.current?.send(JSON.stringify({
@@ -327,7 +331,7 @@ export default function RoomClient({ roomId, signalingServerUrl }: RoomClientPro
         </div>
       </div>
 
-      <SettingsModal 
+      <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         filter={filter}
