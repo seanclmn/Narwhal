@@ -65,7 +65,7 @@ wss.on('connection', (ws: ExtendedWebSocket) => {
             rooms.set(roomId, new Set());
           }
           const room = rooms.get(roomId)!;
-          
+
           // Notify others in the room that a new peer has joined
           room.forEach(peerId => {
             const peerWs = clients.get(peerId);
@@ -87,19 +87,7 @@ wss.on('connection', (ws: ExtendedWebSocket) => {
       case 'offer':
       case 'answer':
       case 'candidate':
-        // If target is provided, forward to specific target
-        if (target && clients.has(target)) {
-          console.log(`Forwarding ${type} from ${sender} to ${target}`);
-          clients.get(target)?.send(JSON.stringify({
-            type,
-            sender,
-            target,
-            payload
-          }));
-        } 
-        // Fallback: If no target but roomId is provided, broadcast to others in room
-        // This helps the initial handshake if the target ID isn't known yet
-        else if (roomId && rooms.has(roomId)) {
+        if (roomId && rooms.has(roomId)) {
           console.log(`Broadcasting ${type} from ${sender} to room ${roomId}`);
           const room = rooms.get(roomId)!;
           room.forEach(peerId => {
@@ -133,7 +121,7 @@ wss.on('connection', (ws: ExtendedWebSocket) => {
               }
             }
           });
-        } 
+        }
         // Otherwise, if target is provided, forward to specific target
         else if (target && clients.has(target)) {
           console.log(`Forwarding fx-change from ${sender} to ${target}`);
@@ -160,7 +148,7 @@ wss.on('connection', (ws: ExtendedWebSocket) => {
       if (ws.roomId && rooms.has(ws.roomId)) {
         const room = rooms.get(ws.roomId)!;
         room.delete(ws.id);
-        
+
         // Notify others in the room that the peer has left
         room.forEach(peerId => {
           const peerWs = clients.get(peerId);
