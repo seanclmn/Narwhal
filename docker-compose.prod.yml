@@ -13,7 +13,7 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=production
-      - NEXT_PUBLIC_SIGNALING_SERVER=${NEXT_PUBLIC_SIGNALING_SERVER}
+      - NEXT_PUBLIC_SIGNALING_SERVER=${NEXT_PUBLIC_SIGNALING_SERVER:-wss://narwhalserver-858361553441.asia-northeast1.run.app}
     depends_on:
       - server
     restart: always
