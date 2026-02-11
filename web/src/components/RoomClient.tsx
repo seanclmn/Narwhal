@@ -15,9 +15,10 @@ interface SignalingMessage {
 interface RoomClientProps {
   roomId: string;
   signalingServerUrl: string;
+  debugMode?: boolean;
 }
 
-export default function RoomClient({ roomId, signalingServerUrl }: RoomClientProps) {
+export default function RoomClient({ roomId, signalingServerUrl, debugMode = false }: RoomClientProps) {
   const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected');
   const [clientId, setClientId] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>('none');
@@ -60,6 +61,7 @@ export default function RoomClient({ roomId, signalingServerUrl }: RoomClientPro
     }
 
     const initWebRTC = async () => {
+      const isDev = debugMode;
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: true,
@@ -78,7 +80,7 @@ export default function RoomClient({ roomId, signalingServerUrl }: RoomClientPro
         console.error('Error accessing media devices:', err);
       }
 
-      console.log('Connecting to signaling server:', signalingServerUrl);
+      if (isDev) console.log('Connecting to signaling server:', signalingServerUrl);
       const socket = new WebSocket(signalingServerUrl);
       socketRef.current = socket;
 
@@ -101,31 +103,34 @@ export default function RoomClient({ roomId, signalingServerUrl }: RoomClientPro
         if (data instanceof Blob) {
           data = await data.text();
         }
-        console.log('RAW MESSAGE RECEIVED:', data);
+
+        const isDev = debugMode;
+        if (isDev) console.log('RAW MESSAGE RECEIVED:', data);
+
         const message: SignalingMessage = JSON.parse(data);
         const { type, sender, payload } = message;
 
-        console.log(`PROCESSED MESSAGE: type=${type}, sender=${sender}`);
+        if (isDev) console.log(`PROCESSED MESSAGE: type=${type}, sender=${sender}`);
 
         switch (type) {
           case 'peer-joined':
-            console.log('Peer joined, starting call to:', sender);
+            if (isDev) console.log('Peer joined, starting call to:', sender);
             await startCall(sender);
             break;
           case 'offer':
-            console.log('Received offer from:', sender);
+            if (isDev) console.log('Received offer from:', sender);
             await handleOffer(sender, payload);
             break;
           case 'answer':
-            console.log('Received answer from:', sender);
+            if (isDev) console.log('Received answer from:', sender);
             await handleAnswer(payload);
             break;
           case 'candidate':
-            console.log('Received ICE candidate from:', sender);
+            if (isDev) console.log('Received ICE candidate from:', sender);
             await handleCandidate(payload);
             break;
           case 'peer-left':
-            console.log('Peer left:', sender);
+            if (isDev) console.log('Peer left:', sender);
             handlePeerLeft();
             break;
           case 'fx-change':
@@ -160,6 +165,7 @@ export default function RoomClient({ roomId, signalingServerUrl }: RoomClientPro
   };
 
   const createPeerConnection = (targetId: string) => {
+    const isDev = debugMode || window.location.hostname === 'localhost';
     if (peerConnectionRef.current) {
       peerConnectionRef.current.close();
     }
@@ -170,7 +176,7 @@ export default function RoomClient({ roomId, signalingServerUrl }: RoomClientPro
     localStream?.getTracks().forEach((track) => pc.addTrack(track, localStream));
 
     pc.ontrack = (event) => {
-      console.log('REMOTE TRACK RECEIVED:', event.streams[0]);
+      if (isDev) console.log('REMOTE TRACK RECEIVED:', event.streams[0]);
       if (remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = event.streams[0];
         socketRef.current?.send(JSON.stringify({
@@ -183,7 +189,7 @@ export default function RoomClient({ roomId, signalingServerUrl }: RoomClientPro
     };
 
     pc.onconnectionstatechange = () => {
-      console.log('CONNECTION STATE CHANGE:', pc.connectionState);
+      if (isDev) console.log('CONNECTION STATE CHANGE:', pc.connectionState);
       if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed') {
         handlePeerLeft();
       }
@@ -191,7 +197,7 @@ export default function RoomClient({ roomId, signalingServerUrl }: RoomClientPro
 
     pc.onicecandidate = (event) => {
       if (event.candidate && socketRef.current) {
-        console.log('SENDING ICE CANDIDATE TO ROOM');
+        if (isDev) console.log('SENDING ICE CANDIDATE TO ROOM');
         socketRef.current.send(JSON.stringify({
           type: 'candidate',
           roomId: roomId,
@@ -231,12 +237,13 @@ export default function RoomClient({ roomId, signalingServerUrl }: RoomClientPro
   };
 
   const handleCandidate = async (candidate: RTCIceCandidateInit) => {
-    console.log('RECEIVED ICE CANDIDATE FROM REMOTE');
+    const isDev = debugMode || window.location.hostname === 'localhost';
+    if (isDev) console.log('RECEIVED ICE CANDIDATE FROM REMOTE');
     try {
       if (peerConnectionRef.current) {
         await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
       } else {
-        console.warn('Received ICE candidate but peerConnection is not initialized yet');
+        if (isDev) console.warn('Received ICE candidate but peerConnection is not initialized yet');
       }
     } catch (e) {
       console.error('Error adding received ice candidate', e);
@@ -264,7 +271,8 @@ export default function RoomClient({ roomId, signalingServerUrl }: RoomClientPro
   };
 
   const startCall = async (targetId: string) => {
-    console.log('STARTING CALL TO:', targetId);
+    const isDev = debugMode || window.location.hostname === 'localhost';
+    if (isDev) console.log('STARTING CALL TO:', targetId);
     const pc = createPeerConnection(targetId);
     const offer = await pc.createOffer();
 

@@ -9,8 +9,12 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
   const signalingServerUrl = process.env.SIGNALING_SERVER_URL ||
     process.env.NEXT_PUBLIC_SIGNALING_SERVER;
 
+  const debugMode = process.env.DEBUG_MODE === 'true' || 
+                   process.env.NEXT_PUBLIC_DEBUG_MODE === 'true';
+
   console.log('DEBUG - SIGNALING_SERVER_URL:', process.env.SIGNALING_SERVER_URL);
   console.log('DEBUG - NEXT_PUBLIC_SIGNALING_SERVER:', process.env.NEXT_PUBLIC_SIGNALING_SERVER);
+  console.log('DEBUG - DEBUG_MODE:', debugMode);
 
   if (!signalingServerUrl) {
     return (
@@ -24,6 +28,7 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
             <p>Debug Info:</p>
             <p>SIGNALING_SERVER_URL: {process.env.SIGNALING_SERVER_URL || 'undefined'}</p>
             <p>NEXT_PUBLIC_SIGNALING_SERVER: {process.env.NEXT_PUBLIC_SIGNALING_SERVER || 'undefined'}</p>
+            <p>DEBUG_MODE: {String(debugMode)}</p>
           </div>
         </div>
       </div>
@@ -34,6 +39,7 @@ export default async function RoomPage({ params }: { params: Promise<{ id: strin
     <RoomClient
       roomId={id}
       signalingServerUrl={signalingServerUrl}
+      debugMode={debugMode}
     />
   );
 }
